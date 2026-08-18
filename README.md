@@ -82,6 +82,8 @@ veerabank-eks/
 
 Add the following secrets to your GitHub repository:
 
+then run the pipeline
+
 
 AWS_ACCESS_KEY_ID
 
