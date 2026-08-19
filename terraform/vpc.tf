@@ -5,16 +5,31 @@
 # a second one).
 # ---------------------------------------------------------------------------
 
-# Look for a VPC already tagged with this project's Name. Returns empty
-# (not an error) if none exists yet.
-data "aws_vpcs" "existing" {
-  tags = {
-    Name = "${var.project_name}-${var.environment}-vpc"
-  }
+# Whether to reuse a VPC Terraform doesn't manage, instead of creating one.
+#
+# This used to be auto-detected with a data source (look up a VPC tagged
+# with this project's name). That's unstable across applies: the FIRST
+# apply creates the VPC (and tags it with that name), so on the very NEXT
+# plan the lookup finds the VPC Terraform itself just made. That flips
+# vpc_already_exists from false -> true, which flips module.vpc's count
+# from 1 -> 0 and tells Terraform to destroy the whole VPC (subnets, NAT
+# gateway, everything) - and since EKS/RDS/Lambda all read vpc_id and the
+# subnet ids from locals below, that flip cascades into force-replacing
+# almost everything else too. Every apply after the first re-triggers it,
+# which is why any change looked like "destroy and recreate everything."
+#
+# Set this explicitly instead. Once Terraform has created (or imported)
+# the VPC, leave this false so Terraform keeps managing module.vpc[0] the
+# normal way. Only set it true if you're intentionally pointing at a VPC
+# that lives outside this Terraform config.
+variable "use_existing_vpc" {
+  description = "Reuse a VPC Terraform doesn't manage instead of creating one. Leave false once Terraform has created/adopted the VPC."
+  type        = bool
+  default     = false
 }
 
 locals {
-  vpc_already_exists = length(data.aws_vpcs.existing.ids) > 0
+  vpc_already_exists = var.use_existing_vpc
 }
 
 module "vpc" {
