@@ -126,7 +126,7 @@ resource "aws_instance" "admin" {
   key_name                    = var.admin_ec2_key_name != "" ? var.admin_ec2_key_name : null
 
   root_block_device {
-    volume_size = 20
+    volume_size = 40
     volume_type = "gp3"
     encrypted   = true
   }
