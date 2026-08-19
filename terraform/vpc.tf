@@ -28,6 +28,15 @@ variable "use_existing_vpc" {
   default     = false
 }
 
+# Only read when use_existing_vpc = true. Set this to the VPC id you want
+# to reuse (e.g. via -var or a .tfvars file) - a fixed id instead of a
+# tag lookup, so it can't flip on its own between applies.
+variable "existing_vpc_id" {
+  description = "VPC id to reuse when use_existing_vpc is true."
+  type        = string
+  default     = ""
+}
+
 locals {
   vpc_already_exists = var.use_existing_vpc
 }
@@ -67,7 +76,7 @@ data "aws_subnets" "existing_private" {
   count = local.vpc_already_exists ? 1 : 0
   filter {
     name   = "vpc-id"
-    values = data.aws_vpcs.existing.ids
+    values = [var.existing_vpc_id]
   }
   tags = {
     "kubernetes.io/role/internal-elb" = "1"
@@ -78,7 +87,7 @@ data "aws_subnets" "existing_public" {
   count = local.vpc_already_exists ? 1 : 0
   filter {
     name   = "vpc-id"
-    values = data.aws_vpcs.existing.ids
+    values = [var.existing_vpc_id]
   }
   tags = {
     "kubernetes.io/role/elb" = "1"
@@ -88,7 +97,7 @@ data "aws_subnets" "existing_public" {
 # Single source of truth other files should reference (eks.tf, alb, etc.)
 # instead of reaching into module.vpc directly, since it may not exist.
 locals {
-  vpc_id = local.vpc_already_exists ? data.aws_vpcs.existing.ids[0] : module.vpc[0].vpc_id
+  vpc_id = local.vpc_already_exists ? var.existing_vpc_id : module.vpc[0].vpc_id
 
   # Fall back to public subnets for the existing-VPC path if no
   # internal-elb-tagged private subnets are found (e.g. a bare default VPC).
